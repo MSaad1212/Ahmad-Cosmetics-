@@ -63,6 +63,28 @@
     </form>
 </div>
 
+<!-- Quick Demo Data Seeder Card -->
+<div class="card" style="padding: 24px; margin-bottom: 24px; border-left: 4px solid var(--accent);">
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
+        <div style="display: flex; align-items: center; gap: 14px;">
+            <div style="width: 44px; height: 44px; border-radius: 10px; background: var(--accent-light); color: var(--accent); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                <i data-lucide="database" style="width: 22px; height: 22px;"></i>
+            </div>
+            <div>
+                <h3 class="card-title" style="margin: 0;">Pakistani Market Demo Inventory & Data</h3>
+                <p style="margin: 3px 0 0; font-size: 0.83rem; color: var(--text-secondary);">
+                    Populate 25+ real Pakistani items (Pond's, Garnier, CeraVe, Sunsilk, Bio Amla, Dabur, Jenpharm Spectra, Vince), local distributors, customer accounts, and sales transactions.
+                </p>
+            </div>
+        </div>
+        <form method="post" action="/settings/seed-data" onsubmit="return confirm('Load Pakistani cosmetics demo data into database? Existing items will not be overwritten.');">
+            <button type="submit" class="btn btn-teal">
+                <i data-lucide="sparkles" style="width: 16px; height: 16px;"></i> Load Demo Data
+            </button>
+        </form>
+    </div>
+</div>
+
 <!-- Taxonomy Grid: Categories & Product Formats -->
 <div class="grid-2col">
     <!-- Categories Panel -->

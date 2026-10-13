@@ -101,3 +101,16 @@ def delete_type(type_id: int, request: Request, current_user: User = Depends(get
     db.commit()
     log_audit(db, current_user.id, "Delete Format/Type", f"Deleted type {typ.name}")
     return RedirectResponse(url="/settings?success=Type+deleted", status_code=303)
+
+@router.post("/seed-data")
+def seed_demo_data(request: Request, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if current_user.role != "Admin":
+        raise HTTPException(status_code=403, detail="Admin permission required")
+    try:
+        from seed_pakistan_market_data import seed_pakistan_data
+        seed_pakistan_data()
+        log_audit(db, current_user.id, "Seed Data", "Loaded Pakistan cosmetics demo data")
+        return RedirectResponse(url="/settings?success=Demo+Pakistani+cosmetics+data+loaded+successfully!", status_code=303)
+    except Exception as e:
+        print(f"Error seeding demo data: {e}")
+        return RedirectResponse(url=f"/settings?error=Error+seeding+data:+{str(e)[:100]}", status_code=303)

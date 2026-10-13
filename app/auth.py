@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-SECRET_KEY = os.getenv("SECRET_KEY", "dev_secret_key_gas kit_shop_management_system")
+SECRET_KEY = os.getenv("SECRET_KEY", "ahmad_cosmetics_secure_secret_key_prod_2026")
 fernet_key = base64.urlsafe_b64encode(hashlib.sha256(SECRET_KEY.encode()).digest())
 fernet = Fernet(fernet_key)
 
@@ -65,7 +65,11 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
     if not user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired")
 
-    user = db.query(User).filter(User.id == user_id).first()
+    try:
+        user = db.query(User).filter(User.id == user_id).first()
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Database lookup failed")
+
     if not user or user.status != "Active":
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User inactive or not found")
 

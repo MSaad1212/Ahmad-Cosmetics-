@@ -13,45 +13,56 @@ from app.services import ensure_walk_in_customer, get_shop_settings
 
 load_dotenv()
 
-try:
-    Base.metadata.create_all(bind=engine)
-    print("Database tables initialized successfully.")
-except Exception as e:
-    print(f"Error initializing database: {e}")
+def init_db():
+    try:
+        Base.metadata.create_all(bind=engine)
+        print("Database tables initialized successfully.")
+    except Exception as e:
+        print(f"Error initializing database: {e}")
+        return False
 
-db = SessionLocal()
-try:
-    admin_user = db.query(User).filter(User.username == "admin").first()
-    if not admin_user:
-        hashed = hash_password("admin123")
-        admin_user = User(
-            username="admin",
-            password_hash=hashed,
-            role="Admin",
-            status="Active"
-        )
-        db.add(admin_user)
+    db = SessionLocal()
+    try:
+        admin_user = db.query(User).filter(User.username == "admin").first()
+        if not admin_user:
+            hashed = hash_password("admin123")
+            admin_user = User(
+                username="admin",
+                password_hash=hashed,
+                role="Admin",
+                status="Active"
+            )
+            db.add(admin_user)
+            db.commit()
+            print("Default admin user created (admin / admin123).")
+        ensure_walk_in_customer(db)
+        get_shop_settings(db)
+        
+        from app.models import ItemCategory, ItemType
+        from app.services import CATEGORIES, ITEM_TYPES
+        for cat in CATEGORIES:
+            if not db.query(ItemCategory).filter(ItemCategory.name == cat).first():
+                db.add(ItemCategory(name=cat))
+        for t in ITEM_TYPES:
+            if not db.query(ItemType).filter(ItemType.name == t).first():
+                db.add(ItemType(name=t))
+                
         db.commit()
-        print("Default admin user created (admin / admin123).")
-    ensure_walk_in_customer(db)
-    get_shop_settings(db)
-    
-    from app.models import ItemCategory, ItemType
-    from app.services import CATEGORIES, ITEM_TYPES
-    for cat in CATEGORIES:
-        if not db.query(ItemCategory).filter(ItemCategory.name == cat).first():
-            db.add(ItemCategory(name=cat))
-    for t in ITEM_TYPES:
-        if not db.query(ItemType).filter(ItemType.name == t).first():
-            db.add(ItemType(name=t))
-            
-    db.commit()
-except Exception as e:
-    print(f"Error seeding database: {e}")
-finally:
-    db.close()
+        return True
+    except Exception as e:
+        print(f"Error seeding database: {e}")
+        return False
+    finally:
+        db.close()
+
+# Run initialization on import
+init_db()
 
 app = FastAPI(title="Ahmad Shop - Skincare, Haircare & Sun Protection")
+
+@app.on_event("startup")
+def on_startup():
+    init_db()
 
 
 from fastapi.responses import RedirectResponse, JSONResponse

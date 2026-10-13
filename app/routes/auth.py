@@ -28,7 +28,20 @@ def login(
     db: Session = Depends(get_db)
 ):
     remember_me = remember is not None
-    user = db.query(User).filter(User.username == username).first()
+    try:
+        user = db.query(User).filter(User.username == username).first()
+    except Exception as e:
+        print(f"Login database query error: {e}")
+        try:
+            from run import init_db
+            init_db()
+            user = db.query(User).filter(User.username == username).first()
+        except Exception as retry_err:
+            error_msg = "Database connection error. If running on Vercel, please ensure DATABASE_URL is configured in your Vercel Environment Variables."
+            return templates.TemplateResponse(
+                "login.html",
+                {"request": request, "error": error_msg}
+            )
 
     if not user:
         return templates.TemplateResponse(

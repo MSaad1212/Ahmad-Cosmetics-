@@ -1,0 +1,357 @@
+{% extends "dashboard.html" %}
+
+{% block title %}Create Pending Order — Ahmad Shop{% endblock %}
+{% block page_title %}Create Customer Pre-Order & Reservation{% endblock %}
+
+{% block content %}
+<div style="max-width: 1100px; margin: 0 auto;">
+    <div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+        <a href="/orders" class="btn btn-secondary btn-sm">
+            <i data-lucide="arrow-left" style="width: 15px; height: 15px;"></i>
+            <span>Back to Orders List</span>
+        </a>
+        <span class="badge badge-gold" style="font-size: 0.85rem; padding: 6px 14px;">
+            Order # {{ next_order_no }}
+        </span>
+    </div>
+
+    {% if error %}
+    <div class="alert alert-danger" style="margin-bottom: 20px;">
+        <i data-lucide="alert-circle" style="width: 18px; height: 18px;"></i>
+        <span>{{ error }}</span>
+    </div>
+    {% endif %}
+
+    <form method="POST" action="/orders/new" id="order-creation-form">
+        <!-- Customer & Order Meta Card -->
+        <div class="card" style="padding: 24px; margin-bottom: 24px;">
+            <h3 class="card-title" style="margin-bottom: 18px; display: flex; align-items: center; gap: 8px;">
+                <i data-lucide="user-check" style="width: 20px; height: 20px; color: var(--secondary);"></i>
+                Customer & Fulfillment Details
+            </h3>
+
+            <div class="grid-3col">
+                <div class="form-group">
+                    <label>Select Customer *</label>
+                    <select name="customer_id" id="customer_select" class="form-control" required onchange="onCustomerChange(this)">
+                        {% for c in customers %}
+                        <option value="{{ c.id }}" 
+                                data-name="{{ c.name }}" 
+                                data-phone="{{ c.phone or '' }}" 
+                                data-address="{{ c.address or '' }}"
+                                {% if c.is_walk_in %}selected{% endif %}>
+                            {{ c.name }} {% if not c.is_walk_in %}({{ c.customer_code }}){% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Customer Name *</label>
+                    <input type="text" name="customer_name" id="cust_name_input" class="form-control" required placeholder="Full Name">
+                </div>
+
+                <div class="form-group">
+                    <label>Contact Phone</label>
+                    <input type="text" name="customer_phone" id="cust_phone_input" class="form-control" placeholder="0300-1234567">
+                </div>
+            </div>
+
+            <div class="grid-3col" style="margin-top: 10px;">
+                <div class="form-group">
+                    <label>Order Date *</label>
+                    <input type="date" name="order_date" class="form-control" value="{{ today }}" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Expected Completion Date</label>
+                    <input type="date" name="expected_date" class="form-control">
+                </div>
+
+                <div class="form-group">
+                    <label>Fulfillment Method *</label>
+                    <select name="fulfillment_method" class="form-control" required>
+                        {% for fm in fulfillment_methods %}
+                        <option value="{{ fm }}">{{ fm }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid-2col" style="margin-top: 10px;">
+                <div class="form-group">
+                    <label>Delivery Address</label>
+                    <input type="text" name="delivery_address" id="cust_addr_input" class="form-control" placeholder="House/Street, Area, City...">
+                </div>
+
+                <div class="form-group">
+                    <label>Initial Status</label>
+                    <select name="status" class="form-control">
+                        {% for st in order_statuses %}
+                        <option value="{{ st }}" {% if st == 'Pending' %}selected{% endif %}>{{ st }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Product Lines Card -->
+        <div class="card" style="padding: 24px; margin-bottom: 24px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h3 class="card-title" style="margin: 0; display: flex; align-items: center; gap: 8px;">
+                    <i data-lucide="sparkles" style="width: 20px; height: 20px; color: var(--secondary);"></i>
+                    Cosmetics Items & Reserved Quantities
+                </h3>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="addNewProductRow()">
+                    <i data-lucide="plus" style="width: 15px; height: 15px;"></i>
+                    <span>Add Item</span>
+                </button>
+            </div>
+
+            <div class="table-container table-scroll-container" style="margin-top: 0; box-shadow: none; border-color: var(--border-subtle);">
+                <table class="data-table" id="items-table" style="min-width: 800px;">
+                    <thead>
+                        <tr>
+                            <th style="width: 32%;">Product / Shade</th>
+                            <th style="width: 18%;">Variant / Notes</th>
+                            <th style="width: 12%;">Qty</th>
+                            <th style="width: 14%;">Price (Rs.)</th>
+                            <th style="width: 10%;">Disc (Rs.)</th>
+                            <th style="width: 14%;">Subtotal (Rs.)</th>
+                            <th style="width: 5%; text-align: center;"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="items-table-body">
+                        <!-- Dynamic rows will be inserted here -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div style="margin-top: 14px;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="addNewProductRow()" style="color: var(--secondary); border-color: var(--secondary);">
+                    <i data-lucide="plus-circle" style="width: 15px; height: 15px;"></i> Add Another Product Line
+                </button>
+            </div>
+        </div>
+
+        <!-- Financial Breakdown & Advance Payment Card -->
+        <div class="grid-2col" style="align-items: flex-start; gap: 24px; margin-bottom: 30px;">
+            <div class="card" style="padding: 24px;">
+                <h3 class="card-title" style="margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                    <i data-lucide="file-text" style="width: 18px; height: 18px; color: var(--text-secondary);"></i>
+                    Order Instructions & Notes
+                </h3>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <textarea name="notes" rows="5" class="form-control" placeholder="Special shade requests, delivery instructions, gift wrapping, etc..."></textarea>
+                </div>
+            </div>
+
+            <div class="card" style="padding: 24px; background: var(--bg-card);">
+                <h3 class="card-title" style="margin-bottom: 18px; display: flex; align-items: center; gap: 8px;">
+                    <i data-lucide="calculator" style="width: 18px; height: 18px; color: var(--secondary);"></i>
+                    Financial Summary & Deposit
+                </h3>
+
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 0.92rem;">
+                    <span style="color: var(--text-secondary);">Items Subtotal:</span>
+                    <span id="display-subtotal" style="font-weight: 600; color: var(--primary);">Rs. 0.00</span>
+                </div>
+
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; gap: 12px;">
+                    <label style="color: var(--text-secondary); font-size: 0.88rem; margin: 0;">Overall Discount (Rs.):</label>
+                    <input type="number" step="0.01" min="0" name="overall_discount" id="overall_discount" value="0.00" class="form-control" style="width: 130px; text-align: right; padding: 6px 10px;" oninput="recalcTotals()">
+                </div>
+
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; gap: 12px;">
+                    <label style="color: var(--text-secondary); font-size: 0.88rem; margin: 0;">Delivery Charges (Rs.):</label>
+                    <input type="number" step="0.01" min="0" name="delivery_charges" id="delivery_charges" value="0.00" class="form-control" style="width: 130px; text-align: right; padding: 6px 10px;" oninput="recalcTotals()">
+                </div>
+
+                <hr style="border: none; border-top: 1px solid var(--border-color); margin: 12px 0;">
+
+                <div style="display: flex; justify-content: space-between; margin-bottom: 16px; font-size: 1.15rem; font-weight: 700; color: var(--primary);">
+                    <span>Grand Total:</span>
+                    <span id="display-grand-total" style="color: var(--primary);">Rs. 0.00</span>
+                </div>
+
+                <div style="background: var(--bg-subtle); padding: 14px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle); margin-bottom: 16px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; gap: 12px;">
+                        <label style="color: var(--primary); font-weight: 600; font-size: 0.88rem; margin: 0;">Advance Deposit (Rs.):</label>
+                        <input type="number" step="0.01" min="0" name="advance_payment" id="advance_payment" value="0.00" class="form-control" style="width: 130px; text-align: right; font-weight: 700; color: var(--success-text); padding: 6px 10px;" oninput="recalcTotals()">
+                    </div>
+
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+                        <label style="color: var(--text-secondary); font-size: 0.84rem; margin: 0;">Payment Method:</label>
+                        <select name="payment_method" class="form-control" style="width: 130px; padding: 6px 10px;">
+                            {% for pm in payment_methods %}
+                            <option value="{{ pm }}">{{ pm }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; font-size: 1.05rem; font-weight: 700;">
+                    <span style="color: var(--text-secondary);">Balance Due:</span>
+                    <span id="display-balance" style="color: var(--error);">Rs. 0.00</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Form Submission Footer -->
+        <div style="display: flex; justify-content: flex-end; gap: 12px;">
+            <a href="/orders" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-teal btn-lg">
+                <i data-lucide="check-circle" style="width: 18px; height: 18px;"></i>
+                <span>Confirm & Place Order</span>
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Product Data Cache for JS -->
+<script>
+    const PRODUCTS = [
+        {% for item in items %}
+        {
+            id: {{ item.id }},
+            code: "{{ item.item_code }}",
+            brand: "{{ item.brand|replace('"', '\\"') }}",
+            name: "{{ (item.name or item.brand)|replace('"', '\\"') }}",
+            shade: "{{ (item.shade or '')|replace('"', '\\"') }}",
+            size: "{{ (item.size_volume or '')|replace('"', '\\"') }}",
+            price: {{ item.sale_price|float }},
+            stock: {{ item.current_stock }},
+            reserved: {{ item.reserved_stock or 0 }},
+            avail: {{ item.available_stock }},
+            expired: {{ 'true' if item.is_expired else 'false' }}
+        },
+        {% endfor %}
+    ];
+
+    function onCustomerChange(sel) {
+        const opt = sel.options[sel.selectedIndex];
+        document.getElementById('cust_name_input').value = opt.getAttribute('data-name') || '';
+        document.getElementById('cust_phone_input').value = opt.getAttribute('data-phone') || '';
+        document.getElementById('cust_addr_input').value = opt.getAttribute('data-address') || '';
+    }
+
+    let rowIdx = 0;
+
+    function addNewProductRow() {
+        rowIdx++;
+        const tbody = document.getElementById('items-table-body');
+        const tr = document.createElement('tr');
+        tr.id = 'row-' + rowIdx;
+
+        let optionsHtml = '<option value="">-- Choose Cosmetic Product --</option>';
+        PRODUCTS.forEach(p => {
+            const label = `${p.brand} - ${p.name} ${p.shade ? '(' + p.shade + ')' : ''} [Avail: ${p.avail}] - Rs. ${p.price.toFixed(2)}`;
+            const disabled = p.expired ? 'disabled' : '';
+            optionsHtml += `<option value="${p.id}" data-price="${p.price}" data-shade="${p.shade}" data-size="${p.size}" data-avail="${p.avail}" ${disabled}>${label} ${p.expired ? '(EXPIRED)' : ''}</option>`;
+        });
+
+        tr.innerHTML = `
+            <td>
+                <select name="item_id" class="form-control" required onchange="onItemSelectRow(${rowIdx}, this)">
+                    ${optionsHtml}
+                </select>
+                <div id="avail-info-${rowIdx}" style="font-size: 0.74rem; color: var(--text-muted); margin-top: 3px;"></div>
+            </td>
+            <td>
+                <input type="text" name="variant_info" id="variant-${rowIdx}" class="form-control" placeholder="e.g. Shade 02 / 50ml">
+            </td>
+            <td>
+                <input type="number" name="quantity" id="qty-${rowIdx}" class="form-control" min="1" value="1" required oninput="recalcRow(${rowIdx})" style="text-align: center;">
+            </td>
+            <td>
+                <input type="number" step="0.01" min="0" name="unit_price" id="price-${rowIdx}" class="form-control" value="0.00" required oninput="recalcRow(${rowIdx})" style="text-align: right;">
+            </td>
+            <td>
+                <input type="number" step="0.01" min="0" name="item_discount" id="disc-${rowIdx}" class="form-control" value="0.00" oninput="recalcRow(${rowIdx})" style="text-align: right;">
+            </td>
+            <td>
+                <input type="text" id="subtotal-${rowIdx}" class="form-control" readonly value="Rs. 0.00" style="text-align: right; background: var(--bg-subtle); font-weight: 600;">
+            </td>
+            <td style="text-align: center;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="removeProductRow(${rowIdx})" style="color: var(--error); padding: 4px 8px;">
+                    <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
+                </button>
+            </td>
+        `;
+
+        tbody.appendChild(tr);
+        lucide.createIcons();
+    }
+
+    function removeProductRow(id) {
+        const row = document.getElementById('row-' + id);
+        if (row) {
+            row.remove();
+            recalcTotals();
+        }
+    }
+
+    function onItemSelectRow(id, sel) {
+        const opt = sel.options[sel.selectedIndex];
+        if (!opt || !opt.value) return;
+        const price = parseFloat(opt.getAttribute('data-price') || '0');
+        const shade = opt.getAttribute('data-shade') || '';
+        const size = opt.getAttribute('data-size') || '';
+        const avail = parseInt(opt.getAttribute('data-avail') || '0');
+
+        document.getElementById('price-' + id).value = price.toFixed(2);
+        
+        let varText = [];
+        if (shade) varText.push(shade);
+        if (size) varText.push(size);
+        document.getElementById('variant-' + id).value = varText.join(' / ');
+
+        const availDiv = document.getElementById('avail-info-' + id);
+        if (availDiv) {
+            availDiv.innerHTML = `Available in stock: <strong>${avail}</strong>`;
+            availDiv.style.color = avail > 0 ? 'var(--success-text)' : 'var(--error)';
+        }
+
+        recalcRow(id);
+    }
+
+    function recalcRow(id) {
+        const qty = parseFloat(document.getElementById('qty-' + id).value || '0');
+        const price = parseFloat(document.getElementById('price-' + id).value || '0');
+        const disc = parseFloat(document.getElementById('disc-' + id).value || '0');
+        
+        const sub = Math.max(0, qty * (price - disc));
+        document.getElementById('subtotal-' + id).value = 'Rs. ' + sub.toFixed(2);
+        recalcTotals();
+    }
+
+    function recalcTotals() {
+        let subtotal = 0;
+        const rows = document.querySelectorAll('#items-table-body tr');
+        rows.forEach(tr => {
+            const id = tr.id.replace('row-', '');
+            const qty = parseFloat(document.getElementById('qty-' + id)?.value || '0');
+            const price = parseFloat(document.getElementById('price-' + id)?.value || '0');
+            const disc = parseFloat(document.getElementById('disc-' + id)?.value || '0');
+            subtotal += Math.max(0, qty * (price - disc));
+        });
+
+        const overallDisc = parseFloat(document.getElementById('overall_discount').value || '0');
+        const delivery = parseFloat(document.getElementById('delivery_charges').value || '0');
+        const advance = parseFloat(document.getElementById('advance_payment').value || '0');
+
+        const grand = Math.max(0, subtotal - overallDisc + delivery);
+        const bal = Math.max(0, grand - advance);
+
+        document.getElementById('display-subtotal').innerText = 'Rs. ' + subtotal.toFixed(2);
+        document.getElementById('display-grand-total').innerText = 'Rs. ' + grand.toFixed(2);
+        document.getElementById('display-balance').innerText = 'Rs. ' + bal.toFixed(2);
+    }
+
+    // Auto add initial line on load
+    document.addEventListener('DOMContentLoaded', () => {
+        onCustomerChange(document.getElementById('customer_select'));
+        addNewProductRow();
+    });
+</script>
+{% endblock %}

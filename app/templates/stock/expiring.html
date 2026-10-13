@@ -1,0 +1,87 @@
+{% extends "dashboard.html" %}
+{% block title %}Expiry & Batch Controls — Ahmad Shop{% endblock %}
+{% block page_title %}Near-Expiry & Expired Inventory Alerts{% endblock %}
+
+{% block content %}
+<div class="card" style="padding: 20px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+    <div>
+        <h3 style="font-size: 1.1rem; color: var(--primary); margin: 0; font-weight: 700;">Cosmetics Expiry Controls</h3>
+        <p style="color: var(--text-secondary); font-size: 0.85rem; margin: 2px 0 0;">
+            Cosmetics with expiration dates within the next 60 days or already past their shelf-life. Expired products cannot be sold through POS.
+        </p>
+    </div>
+    <div style="display: flex; gap: 10px;">
+        <a href="/stock" class="btn btn-secondary btn-sm">All Inventory</a>
+        <a href="/stock/low" class="btn btn-secondary btn-sm">Low Stock Alerts</a>
+    </div>
+</div>
+
+<div class="table-container has-card-view" style="margin-top: 0;">
+    <table class="data-table table-card-view">
+        <thead>
+            <tr>
+                <th>Code & Brand</th>
+                <th>Product Name</th>
+                <th>Category / Shade</th>
+                <th>Batch #</th>
+                <th>Expiry Date</th>
+                <th>Current Stock</th>
+                <th>Status</th>
+                <th style="text-align: right;">Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                <td class="card-primary-cell" data-label="Code & Brand">
+                    <span style="font-weight: 700; color: var(--primary);">
+                        <a href="/stock/{{ item.id }}" class="link">{{ item.item_code }}</a>
+                    </span>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">{{ item.brand }}</div>
+                </td>
+                <td data-label="Product Name" style="font-weight: 600; color: var(--primary);">
+                    {{ item.name or item.brand }}
+                </td>
+                <td data-label="Category / Shade">
+                    <span class="badge badge-teal">{{ item.category }}</span>
+                    {% if item.shade %}
+                    <span style="font-size: 0.75rem; color: var(--text-secondary); display: block; margin-top: 2px;">{{ item.shade }}</span>
+                    {% endif %}
+                </td>
+                <td data-label="Batch #" style="font-family: monospace; font-size: 0.85rem;">
+                    {{ item.batch_no or '—' }}
+                </td>
+                <td data-label="Expiry Date" style="font-weight: 700;">
+                    {% if item.is_expired %}
+                        <span style="color: var(--error);">{{ item.expiry_date }}</span>
+                    {% else %}
+                        <span style="color: var(--warning-text);">{{ item.expiry_date }}</span>
+                    {% endif %}
+                </td>
+                <td data-label="Current Stock">
+                    {{ item.current_stock }} {{ item.unit }}
+                </td>
+                <td data-label="Status">
+                    {% if item.is_expired %}
+                        <span class="badge badge-danger">EXPIRED (Cannot Sell)</span>
+                    {% else %}
+                        <span class="badge badge-warning">Near Expiry (&le; 60 days)</span>
+                    {% endif %}
+                </td>
+                <td class="card-actions-cell" data-label="Action" style="text-align: right;">
+                    <a href="/stock/{{ item.id }}/edit" class="btn btn-secondary btn-sm">Edit</a>
+                    <a href="/stock/{{ item.id }}/adjust" class="btn btn-secondary btn-sm" style="color: var(--error);">Adjust</a>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="8" class="card-empty-cell" style="text-align: center; color: var(--text-muted); padding: 48px;">
+                    <i data-lucide="check-circle" style="width: 36px; height: 36px; color: var(--success); margin-bottom: 8px;"></i>
+                    <p>All active cosmetic products have valid shelf-life. No near-expiry products.</p>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

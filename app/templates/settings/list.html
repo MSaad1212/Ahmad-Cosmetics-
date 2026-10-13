@@ -1,0 +1,162 @@
+{% extends "dashboard.html" %}
+{% block title %}Shop & System Settings — Ahmad Shop{% endblock %}
+{% block page_title %}Store Profile & Beauty Taxonomy{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 24px;">
+    <p style="color: var(--text-secondary); font-size: 0.95rem; margin: 0;">
+        Manage store profile information, printable invoice headers, cosmetics categories, and beauty format classifications.
+    </p>
+</div>
+
+<!-- Shop Profile Settings Card -->
+<div class="card" style="padding: 24px; margin-bottom: 24px;">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="width: 42px; height: 42px; border-radius: 10px; background: var(--secondary-light); color: var(--secondary); display: flex; align-items: center; justify-content: center;">
+                <i data-lucide="store" style="width: 22px; height: 22px;"></i>
+            </div>
+            <div>
+                <h3 class="card-title" style="margin: 0;">Store Profile & Receipt Customization</h3>
+                <span style="font-size: 0.82rem; color: var(--text-secondary);">Branding used on POS receipts, A4 invoices, and order confirmations</span>
+            </div>
+        </div>
+        <span class="badge badge-teal">Live Configuration</span>
+    </div>
+
+    <form method="post" action="/settings/shop">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-bottom: 16px;">
+            <div>
+                <label class="form-label" style="font-weight: 600;">Shop Name *</label>
+                <input type="text" name="shop_name" class="form-control" value="{{ shop.shop_name if shop else 'Ahmad Shop' }}" required placeholder="e.g. Ahmad Shop">
+            </div>
+            <div>
+                <label class="form-label" style="font-weight: 600;">Shop Tagline</label>
+                <input type="text" name="shop_tagline" class="form-control" value="{{ shop.shop_tagline if shop else 'Luxury Beauty & Cosmetics' }}" placeholder="e.g. Premium Fragrances & Skincare">
+            </div>
+            <div>
+                <label class="form-label" style="font-weight: 600;">Phone / WhatsApp</label>
+                <input type="text" name="phone" class="form-control" value="{{ shop.phone if shop else '+92 300 1234567' }}" placeholder="+92 300 1234567">
+            </div>
+            <div>
+                <label class="form-label" style="font-weight: 600;">Email Address</label>
+                <input type="email" name="email" class="form-control" value="{{ shop.email if shop else 'info@ahmadshop.com' }}" placeholder="info@ahmadshop.com">
+            </div>
+            <div>
+                <label class="form-label" style="font-weight: 600;">Store Address</label>
+                <input type="text" name="address" class="form-control" value="{{ shop.address if shop else 'Main Beauty Boulevard, Commercial Zone' }}" placeholder="Physical location">
+            </div>
+            <div>
+                <label class="form-label" style="font-weight: 600;">Currency Symbol</label>
+                <input type="text" name="currency_symbol" class="form-control" value="{{ shop.currency_symbol if shop else 'Rs.' }}" placeholder="Rs.">
+            </div>
+        </div>
+        <div style="margin-bottom: 20px;">
+            <label class="form-label" style="font-weight: 600;">Receipt & Confirmation Footer Message</label>
+            <input type="text" name="receipt_footer" class="form-control" value="{{ shop.receipt_footer if shop else 'Thank you for shopping at Ahmad Shop! Items can be exchanged within 7 days with valid receipt.' }}" placeholder="Footer legal or appreciation note">
+        </div>
+        <div style="display: flex; justify-content: flex-end;">
+            <button type="submit" class="btn btn-teal">
+                <i data-lucide="check" style="width: 16px; height: 16px;"></i> Save Shop Profile
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Taxonomy Grid: Categories & Product Formats -->
+<div class="grid-2col">
+    <!-- Categories Panel -->
+    <div class="card" style="padding: 24px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+            <div>
+                <h3 class="card-title">Cosmetics Categories</h3>
+                <span style="font-size: 0.78rem; color: var(--text-secondary);">e.g. Makeup, Skincare, Haircare, Perfumes & Fragrances</span>
+            </div>
+            <span class="badge badge-teal">{{ categories|length }} Categories</span>
+        </div>
+
+        <form method="post" action="/settings/categories/add" style="display: flex; gap: 10px; margin-bottom: 20px;">
+            <input type="text" name="name" class="form-control" placeholder="New Cosmetics Category (e.g. Sun Care)..." required style="flex: 1;">
+            <button type="submit" class="btn btn-teal" style="width: auto;">
+                <i data-lucide="plus" style="width: 16px; height: 16px;"></i> Add
+            </button>
+        </form>
+
+        <div class="table-container has-card-view" style="margin-top: 0; box-shadow: none;">
+            <table class="data-table table-card-view">
+                <thead>
+                    <tr>
+                        <th>Category Name</th>
+                        <th style="width: 90px; text-align: right;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cat in categories %}
+                    <tr>
+                        <td class="card-primary-cell" data-label="Category Name" style="font-weight: 600; color: var(--primary);">
+                            {{ cat.name }}
+                        </td>
+                        <td class="card-actions-cell" data-label="Action" style="text-align: right;">
+                            <form method="post" action="/settings/categories/{{ cat.id }}/delete" onsubmit="return confirmDelete(event, this, 'this category');">
+                                <button type="submit" class="btn btn-secondary btn-sm" style="color: var(--error); padding: 4px 8px;" title="Delete Category">
+                                    <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="2" class="card-empty-cell" style="text-align: center; color: var(--text-muted); padding: 32px 0;">No categories registered.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Product Formats & Finishes Panel -->
+    <div class="card" style="padding: 24px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+            <div>
+                <h3 class="card-title">Formats & Finishes</h3>
+                <span style="font-size: 0.78rem; color: var(--text-secondary);">e.g. Liquid, Cream, Powder, Serum & Oil, Matte Velvet</span>
+            </div>
+            <span class="badge badge-navy">{{ types|length }} Types</span>
+        </div>
+
+        <form method="post" action="/settings/types/add" style="display: flex; gap: 10px; margin-bottom: 20px;">
+            <input type="text" name="name" class="form-control" placeholder="New Format/Finish (e.g. Shimmer Glow)..." required style="flex: 1;">
+            <button type="submit" class="btn btn-primary" style="width: auto;">
+                <i data-lucide="plus" style="width: 16px; height: 16px;"></i> Add
+            </button>
+        </form>
+
+        <div class="table-container has-card-view" style="margin-top: 0; box-shadow: none;">
+            <table class="data-table table-card-view">
+                <thead>
+                    <tr>
+                        <th>Format / Finish Description</th>
+                        <th style="width: 90px; text-align: right;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for typ in types %}
+                    <tr>
+                        <td class="card-primary-cell" data-label="Format / Finish Description" style="font-weight: 600; color: var(--primary);">
+                            {{ typ.name }}
+                        </td>
+                        <td class="card-actions-cell" data-label="Action" style="text-align: right;">
+                            <form method="post" action="/settings/types/{{ typ.id }}/delete" onsubmit="return confirmDelete(event, this, 'this beauty format');">
+                                <button type="submit" class="btn btn-secondary btn-sm" style="color: var(--error); padding: 4px 8px;" title="Delete Format">
+                                    <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="2" class="card-empty-cell" style="text-align: center; color: var(--text-muted); padding: 32px 0;">No beauty formats registered.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

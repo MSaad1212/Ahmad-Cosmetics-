@@ -1,0 +1,559 @@
+{% extends "dashboard.html" %}
+{% block title %}Store Dashboard — Ahmad Shop{% endblock %}
+{% block page_title %}Beauty Boutique & Operations Dashboard{% endblock %}
+
+{% block content %}
+<!-- Quick Actions Toolbar -->
+<div class="quick-actions-bar">
+    <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 0.82rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">Quick Actions:</span>
+    </div>
+    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <a href="/customers/sales/new" class="btn btn-teal btn-sm" style="font-weight: 600;">
+            <i data-lucide="sparkles" style="width: 15px; height: 15px;"></i> POS Checkout
+        </a>
+        <a href="/orders/new" class="btn btn-primary btn-sm" style="font-weight: 600;">
+            <i data-lucide="package-plus" style="width: 15px; height: 15px;"></i> New Customer Order
+        </a>
+        <a href="/stock/new" class="btn btn-secondary btn-sm">
+            <i data-lucide="plus-circle" style="width: 15px; height: 15px;"></i> Add Beauty Product
+        </a>
+        <a href="/stock/expiring" class="btn btn-secondary btn-sm" style="{% if expired_count > 0 %}color: var(--error); border-color: rgba(220,38,38,0.3);{% endif %}">
+            <i data-lucide="calendar-off" style="width: 15px; height: 15px;"></i> Expiry Monitor
+            {% if expired_count > 0 %}<span class="badge badge-danger" style="padding: 2px 6px; font-size: 0.72rem; margin-left: 4px;">{{ expired_count }}</span>{% endif %}
+        </a>
+        <a href="/suppliers/purchases/new" class="btn btn-secondary btn-sm">
+            <i data-lucide="truck" style="width: 15px; height: 15px;"></i> Vendor Inward
+        </a>
+        <a href="/customers/payments/new" class="btn btn-secondary btn-sm">
+            <i data-lucide="credit-card" style="width: 15px; height: 15px;"></i> Receive Payment
+        </a>
+    </div>
+</div>
+
+{% if expired_count > 0 or near_expiry_count > 0 %}
+<!-- Cosmetics Expiry Alert Notice -->
+<div style="background: #FEE2E2; border: 1px solid #FECACA; border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 22px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+    <div style="display: flex; align-items: center; gap: 12px;">
+        <div style="width: 36px; height: 36px; border-radius: 50%; background: #FFFFFF; color: #DC2626; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border: 1px solid #FECACA;">
+            <i data-lucide="alert-triangle" style="width: 18px; height: 18px;"></i>
+        </div>
+        <div>
+            <div style="font-weight: 700; color: #991B1B; font-size: 0.92rem;">Cosmetics Shelf-Life & Expiration Notice</div>
+            <div style="font-size: 0.82rem; color: #7F1D1D;">
+                {% if expired_count > 0 %}<strong style="color: #DC2626;">{{ expired_count }} item(s) already expired</strong> (blocked from POS). {% endif %}
+                {% if near_expiry_count > 0 %}<strong>{{ near_expiry_count }} item(s) expiring within 60 days.</strong>{% endif %}
+            </div>
+        </div>
+    </div>
+    <a href="/stock/expiring" class="btn btn-sm" style="background: #DC2626; color: #FFFFFF; font-weight: 600;">
+        Review Expiry Report &rarr;
+    </a>
+</div>
+{% endif %}
+
+<!-- Professional KPI Grid -->
+<div class="kpi-grid">
+    <!-- 1. Today's Sales -->
+    <div class="kpi-card accent-teal">
+        <div class="kpi-top">
+            <span class="kpi-title">Today's Sales</span>
+            <div class="kpi-icon-wrapper kpi-icon-teal">
+                <i data-lucide="sparkles" style="width: 20px; height: 20px;"></i>
+            </div>
+        </div>
+        <div class="kpi-value">Rs. {{ '%.2f'|format(today_sales|float) }}</div>
+        <div class="kpi-bottom">
+            <span>{{ today_sales_count }} POS receipts today</span>
+            {% if today_vs_yesterday_pct >= 0 %}
+            <span class="kpi-badge kpi-badge-success">
+                <i data-lucide="trending-up" style="width: 12px; height: 12px;"></i> +{{ today_vs_yesterday_pct }}%
+            </span>
+            {% else %}
+            <span class="kpi-badge kpi-badge-danger">
+                <i data-lucide="trending-down" style="width: 12px; height: 12px;"></i> {{ today_vs_yesterday_pct }}%
+            </span>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 2. Monthly Revenue -->
+    <div class="kpi-card accent-navy">
+        <div class="kpi-top">
+            <span class="kpi-title">Monthly Revenue</span>
+            <div class="kpi-icon-wrapper kpi-icon-navy">
+                <i data-lucide="calendar" style="width: 20px; height: 20px;"></i>
+            </div>
+        </div>
+        <div class="kpi-value">Rs. {{ '%.2f'|format(month_sales|float) }}</div>
+        <div class="kpi-bottom">
+            <span>This calendar month</span>
+            <a href="/customers/sales" class="link" style="font-size: 0.78rem;">View sales &rarr;</a>
+        </div>
+    </div>
+
+    <!-- 3. Pending Orders KPI -->
+    <div class="kpi-card accent-gold">
+        <div class="kpi-top">
+            <span class="kpi-title">Pending Orders</span>
+            <div class="kpi-icon-wrapper kpi-icon-gold">
+                <i data-lucide="clock" style="width: 20px; height: 20px;"></i>
+            </div>
+        </div>
+        <div class="kpi-value">{{ pending_orders_count }}</div>
+        <div class="kpi-bottom">
+            <span>{{ ready_orders_count }} Ready · {% if overdue_orders_count > 0 %}<strong style="color: var(--error);">{{ overdue_orders_count }} Overdue</strong>{% else %}0 Overdue{% endif %}</span>
+            <a href="/orders" class="link" style="font-size: 0.78rem;">Open orders &rarr;</a>
+        </div>
+    </div>
+
+    <!-- 4. Open Orders Due Balance -->
+    <div class="kpi-card accent-amber">
+        <div class="kpi-top">
+            <span class="kpi-title">Order Balances Due</span>
+            <div class="kpi-icon-wrapper kpi-icon-amber">
+                <i data-lucide="receipt" style="width: 20px; height: 20px;"></i>
+            </div>
+        </div>
+        <div class="kpi-value">Rs. {{ '%.2f'|format(outstanding_orders_balance|float) }}</div>
+        <div class="kpi-bottom">
+            <span>Pending collection on open orders</span>
+            <a href="/orders" class="link" style="font-size: 0.78rem;">Fulfillment &rarr;</a>
+        </div>
+    </div>
+
+    <!-- 5. Active Beauty Products -->
+    <div class="kpi-card accent-emerald">
+        <div class="kpi-top">
+            <span class="kpi-title">Cosmetics Catalog</span>
+            <div class="kpi-icon-wrapper kpi-icon-emerald">
+                <i data-lucide="layers" style="width: 20px; height: 20px;"></i>
+            </div>
+        </div>
+        <div class="kpi-value">{{ total_products }}</div>
+        <div class="kpi-bottom">
+            <span>Active shades, formats & SKUs</span>
+            <a href="/stock" class="link" style="font-size: 0.78rem;">Catalog &rarr;</a>
+        </div>
+    </div>
+
+    <!-- 6. Inventory Valuation -->
+    <div class="kpi-card accent-navy">
+        <div class="kpi-top">
+            <span class="kpi-title">Stock Valuation</span>
+            <div class="kpi-icon-wrapper kpi-icon-navy">
+                <i data-lucide="database" style="width: 20px; height: 20px;"></i>
+            </div>
+        </div>
+        <div class="kpi-value">Rs. {{ '%.2f'|format(stock_value|float) }}</div>
+        <div class="kpi-bottom">
+            <span>Purchase cost basis</span>
+            <a href="/reports/stock-valuation" class="link" style="font-size: 0.78rem;">Valuation &rarr;</a>
+        </div>
+    </div>
+
+    <!-- 7. Low Stock & Shelf Alerts -->
+    <div class="kpi-card accent-red">
+        <div class="kpi-top">
+            <span class="kpi-title">Low Stock Alert</span>
+            <div class="kpi-icon-wrapper kpi-icon-red">
+                <i data-lucide="alert-triangle" style="width: 20px; height: 20px;"></i>
+            </div>
+        </div>
+        <div class="kpi-value" style="color: {% if low_stock_count > 0 %}var(--error){% else %}var(--primary){% endif %};">
+            {{ low_stock_count }}
+        </div>
+        <div class="kpi-bottom">
+            <span>Items below safety threshold</span>
+            <a href="/stock/low" class="link" style="font-size: 0.78rem; color: var(--error);">Review alerts &rarr;</a>
+        </div>
+    </div>
+
+    <!-- 8. Net Operating Margin -->
+    <div class="kpi-card accent-teal">
+        <div class="kpi-top">
+            <span class="kpi-title">Net Margin / Profit</span>
+            <div class="kpi-icon-wrapper kpi-icon-teal">
+                <i data-lucide="bar-chart-2" style="width: 20px; height: 20px;"></i>
+            </div>
+        </div>
+        <div class="kpi-value" style="color: {% if net_profit >= 0 %}var(--success){% else %}var(--error){% endif %};">
+            Rs. {{ '%.2f'|format(net_profit|float) }}
+        </div>
+        <div class="kpi-bottom">
+            <span>Monthly operations</span>
+            <span class="kpi-badge kpi-badge-info">{{ profit_margin }}% margin</span>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Section -->
+<div class="dashboard-2col dashboard-charts-grid">
+    <!-- Sales Trend Chart -->
+    <div class="card" style="padding: 24px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div>
+                <h3 class="card-title">Weekly Sales Trend</h3>
+                <p style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 2px;">Daily sales performance over the past 7 days</p>
+            </div>
+            <span class="badge badge-teal"><i data-lucide="trending-up" style="width: 12px; height: 12px;"></i> Live Updates</span>
+        </div>
+        <div class="chart-container-responsive">
+            <canvas id="salesTrendChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Category Distribution Doughnut -->
+    <div class="card" style="padding: 24px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div>
+                <h3 class="card-title">Cosmetics Categories</h3>
+                <p style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 2px;">Revenue breakdown across beauty lines</p>
+            </div>
+            <a href="/stock" class="link" style="font-size: 0.8rem;">View Catalog</a>
+        </div>
+        <div class="chart-container-responsive" style="display: flex; align-items: center; justify-content: center;">
+            <canvas id="categoryChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Pending Orders Section -->
+<div class="card" style="padding: 24px; margin-bottom: 24px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
+        <div>
+            <h3 class="card-title" style="display: flex; align-items: center; gap: 8px;">
+                <i data-lucide="clock" style="width: 20px; height: 20px; color: var(--secondary);"></i>
+                Active Pending Customer Orders
+            </h3>
+            <p style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 2px;">Customer custom bookings, bundles, and advance orders awaiting fulfillment</p>
+        </div>
+        <div style="display: flex; gap: 8px;">
+            <a href="/orders/new" class="btn btn-teal btn-sm"><i data-lucide="plus" style="width: 14px; height: 14px;"></i> New Order</a>
+            <a href="/orders" class="btn btn-secondary btn-sm">All Orders &rarr;</a>
+        </div>
+    </div>
+    <div class="table-container has-card-view" style="margin-top: 0; box-shadow: none; border-color: var(--border-subtle);">
+        <table class="data-table table-card-view">
+            <thead>
+                <tr>
+                    <th>Order #</th>
+                    <th>Customer</th>
+                    <th>Order Date</th>
+                    <th>Expected Date</th>
+                    <th>Status</th>
+                    <th>Total</th>
+                    <th>Balance Due</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ord in recent_orders %}
+                <tr>
+                    <td class="card-primary-cell" data-label="Order #">
+                        <a href="/orders/{{ ord.id }}" style="font-weight: 700; color: var(--secondary);" class="link">
+                            {{ ord.order_number }}
+                        </a>
+                    </td>
+                    <td data-label="Customer">
+                        <div style="font-weight: 600; color: var(--primary);">{{ ord.customer.name if ord.customer else ord.customer_name }}</div>
+                        <div style="font-size: 0.78rem; color: var(--text-muted);">{{ ord.customer_phone or '—' }}</div>
+                    </td>
+                    <td data-label="Order Date" style="font-size: 0.82rem; color: var(--text-muted);">{{ ord.order_date }}</td>
+                    <td data-label="Expected Date">
+                        {% if ord.expected_date %}
+                            <span style="font-size: 0.82rem; {% if ord.is_overdue %}color: var(--error); font-weight: 700;{% endif %}">
+                                {{ ord.expected_date }}
+                            </span>
+                            {% if ord.is_overdue %}
+                            <span class="badge badge-overdue" style="font-size: 0.68rem; padding: 2px 5px; margin-left: 4px;">Overdue</span>
+                            {% endif %}
+                        {% else %}
+                            <span style="color: var(--text-muted); font-size: 0.82rem;">—</span>
+                        {% endif %}
+                    </td>
+                    <td data-label="Status">
+                        {% if ord.status == 'Draft' %}<span class="badge badge-draft">Draft</span>
+                        {% elif ord.status == 'Pending' %}<span class="badge badge-pending">Pending</span>
+                        {% elif ord.status == 'Confirmed' %}<span class="badge badge-confirmed">Confirmed</span>
+                        {% elif ord.status == 'Preparing' %}<span class="badge badge-preparing">Preparing</span>
+                        {% elif ord.status == 'Ready for Collection' %}<span class="badge badge-ready">Ready</span>
+                        {% elif ord.status == 'Out for Delivery' %}<span class="badge badge-delivery">Out for Delivery</span>
+                        {% elif ord.status == 'Completed' %}<span class="badge badge-completed">Completed</span>
+                        {% elif ord.status == 'Cancelled' %}<span class="badge badge-cancelled">Cancelled</span>
+                        {% else %}<span class="badge badge-secondary">{{ ord.status }}</span>{% endif %}
+                    </td>
+                    <td data-label="Total" style="font-weight: 700; color: var(--primary);">
+                        Rs. {{ '%.2f'|format(ord.grand_total|float) }}
+                    </td>
+                    <td data-label="Balance Due">
+                        {% if ord.balance_due|float > 0 %}
+                        <span style="font-weight: 700; color: var(--error);">Rs. {{ '%.2f'|format(ord.balance_due|float) }}</span>
+                        {% else %}
+                        <span class="badge badge-success" style="font-size: 0.75rem;">Paid in Full</span>
+                        {% endif %}
+                    </td>
+                    <td class="card-actions-cell" data-label="Actions">
+                        <div style="display: flex; gap: 6px; justify-content: flex-end;">
+                            <a href="/orders/{{ ord.id }}" class="btn btn-secondary btn-sm" title="View Order Details">
+                                <i data-lucide="eye" style="width: 14px; height: 14px;"></i> Details
+                            </a>
+                            <a href="/print/order/{{ ord.id }}" target="_blank" class="btn btn-secondary btn-sm" title="Print Confirmation">
+                                <i data-lucide="printer" style="width: 14px; height: 14px;"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8" class="card-empty-cell" style="text-align: center; padding: 32px 0; color: var(--text-muted);">
+                        <i data-lucide="package-check" style="width: 32px; height: 32px; opacity: 0.4; margin-bottom: 8px;"></i>
+                        <br>No open pending orders. Create a new custom or advance order!
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Two-Column Section: Recent Transactions & Low Stock Alerts -->
+<div class="dashboard-2col dashboard-tables-grid">
+    <!-- Recent POS Sales -->
+    <div class="card" style="padding: 24px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <div>
+                <h3 class="card-title">Recent POS Transactions</h3>
+                <p style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 2px;">Latest store sales receipts</p>
+            </div>
+            <a href="/customers/sales" class="btn btn-secondary btn-sm">All Sales &rarr;</a>
+        </div>
+        <div class="table-container has-card-view" style="margin-top: 0; box-shadow: none; border-color: var(--border-subtle);">
+            <table class="data-table table-card-view">
+                <thead>
+                    <tr>
+                        <th>Invoice</th>
+                        <th>Customer</th>
+                        <th>Date</th>
+                        <th>Amount</th>
+                        <th>Payment</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sale in recent_sales %}
+                    <tr>
+                        <td class="card-primary-cell" data-label="Invoice">
+                            <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                                <span style="font-weight: 700;">
+                                    <a href="/customers/sales/{{ sale.id }}" class="link">{{ sale.invoice_no }}</a>
+                                </span>
+                                <span class="badge {% if sale.payment_method == 'Cash' %}badge-success{% elif sale.payment_method == 'Bank Transfer' %}badge-teal{% else %}badge-navy{% endif %}">
+                                    {{ sale.payment_method or 'Cash' }}
+                                </span>
+                            </div>
+                        </td>
+                        <td data-label="Customer" style="font-weight: 500; color: var(--primary);">
+                            {{ sale.customer.name }}
+                        </td>
+                        <td data-label="Date" style="color: var(--text-muted); font-size: 0.82rem;">{{ sale.date }}</td>
+                        <td data-label="Amount" style="font-weight: 700; color: var(--primary); font-family: var(--font-heading);">
+                            Rs. {{ '%.2f'|format(sale.total_amount|float) }}
+                        </td>
+                        <td data-label="Payment">
+                            <span class="badge {% if sale.payment_method == 'Cash' %}badge-success{% elif sale.payment_method == 'Bank Transfer' %}badge-teal{% else %}badge-navy{% endif %}">
+                                {{ sale.payment_method or 'Cash' }}
+                            </span>
+                        </td>
+                        <td class="card-actions-cell" data-label="Actions">
+                            <a href="/print/sale-pos/{{ sale.id }}" target="_blank" class="btn btn-secondary btn-sm" style="padding: 4px 8px;" title="Print Receipt">
+                                <i data-lucide="receipt" style="width: 14px; height: 14px;"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="card-empty-cell" style="text-align: center; padding: 36px 0; color: var(--text-muted);">
+                            <i data-lucide="receipt" style="width: 32px; height: 32px; margin-bottom: 8px; opacity: 0.4;"></i>
+                            <br>No recent sales found. Create your first sale from the POS screen!
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Low Stock Inventory Alerts -->
+    <div class="card" style="padding: 24px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <div>
+                <h3 class="card-title">Low Stock Alert</h3>
+                <p style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 2px;">Cosmetics needing urgent restocking</p>
+            </div>
+            <a href="/stock/low" class="btn btn-secondary btn-sm" style="color: var(--error);">View All</a>
+        </div>
+        <div class="table-container has-card-view" style="margin-top: 0; box-shadow: none; border-color: var(--border-subtle);">
+            <table class="data-table table-card-view">
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Stock</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in low_stock %}
+                    <tr>
+                        <td class="card-primary-cell" data-label="Product">
+                            <div style="font-weight: 600; color: var(--primary);">{{ item.name or item.brand }}</div>
+                            <div style="font-size: 0.76rem; color: var(--text-muted);">
+                                {{ item.item_code }} · {{ item.category }}{% if item.shade %} · {{ item.shade }}{% endif %}
+                            </div>
+                        </td>
+                        <td data-label="Stock">
+                            <span class="badge badge-danger">
+                                {{ item.current_stock }} left
+                            </span>
+                        </td>
+                        <td class="card-actions-cell" data-label="Action">
+                            <a href="/suppliers/purchases/new" class="btn btn-secondary btn-sm" style="padding: 4px 10px; font-size: 0.78rem;">
+                                Reorder
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="3" class="card-empty-cell" style="text-align: center; padding: 36px 0; color: var(--text-muted);">
+                            <i data-lucide="check-circle" style="width: 32px; height: 32px; color: var(--success); margin-bottom: 8px; opacity: 0.8;"></i>
+                            <br>All cosmetic inventory levels are healthy.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Chart.js Setup with Luxury Cosmetics Palette -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    // 1. Sales Trend Line/Area Chart
+    const trendLabels = {{ sales_trend_labels|safe }};
+    const trendData = {{ sales_trend_data|safe }};
+    const trendEl = document.getElementById('salesTrendChart');
+
+    if (trendEl && trendLabels && trendLabels.length > 0) {
+        const ctx = trendEl.getContext('2d');
+        const gradient = ctx.createLinearGradient(0, 0, 0, 220);
+        gradient.addColorStop(0, 'rgba(13, 148, 136, 0.25)');
+        gradient.addColorStop(1, 'rgba(13, 148, 136, 0.00)');
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: trendLabels,
+                datasets: [{
+                    label: 'Revenue (Rs.)',
+                    data: trendData,
+                    borderColor: '#0D9488',
+                    borderWidth: 2.5,
+                    backgroundColor: gradient,
+                    fill: true,
+                    tension: 0.35,
+                    pointBackgroundColor: '#FFFFFF',
+                    pointBorderColor: '#0D9488',
+                    pointBorderWidth: 2,
+                    pointRadius: 4,
+                    pointHoverRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#172554',
+                        titleFont: { family: 'Outfit', size: 13 },
+                        bodyFont: { family: 'Inter', size: 12 },
+                        padding: 10,
+                        callbacks: {
+                            label: function(context) {
+                                return 'Rs. ' + context.parsed.y.toLocaleString();
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: { font: { family: 'Inter', size: 11 }, color: '#64748B' }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: '#F1F5F9' },
+                        ticks: {
+                            font: { family: 'Inter', size: 11 },
+                            color: '#64748B',
+                            callback: function(value) { return 'Rs. ' + value; }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // 2. Category Doughnut Chart
+    const catLabels = {{ cat_labels|safe }};
+    const catData = {{ cat_data|safe }};
+    const catEl = document.getElementById('categoryChart');
+
+    if (catEl && catLabels && catLabels.length > 0) {
+        new Chart(catEl, {
+            type: 'doughnut',
+            data: {
+                labels: catLabels,
+                datasets: [{
+                    data: catData,
+                    backgroundColor: [
+                        '#172554', // Primary Navy
+                        '#0D9488', // Accent Teal
+                        '#2563EB', // Blue
+                        '#16A34A', // Green
+                        '#D97706', // Amber
+                        '#64748B', // Slate Grey
+                        '#DC2626', // Danger Red
+                        '#1E3A5F'  // Secondary Navy
+                    ],
+                    borderWidth: 2,
+                    borderColor: '#FFFFFF'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            boxWidth: 12,
+                            padding: 12,
+                            font: { family: 'Inter', size: 11 },
+                            color: '#1F2937'
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: '#172554',
+                        padding: 10,
+                        bodyFont: { family: 'Inter', size: 12 }
+                    }
+                },
+                cutout: '68%'
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

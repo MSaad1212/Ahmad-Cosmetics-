@@ -1,0 +1,316 @@
+{% extends "dashboard.html" %}
+
+{% block title %}Pending Orders Management — Ahmad Shop{% endblock %}
+{% block page_title %}Pending Orders & Reservations{% endblock %}
+
+{% block content %}
+<!-- Top Header Actions -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 12px;">
+    <div>
+        <p style="color: var(--text-secondary); margin: 0; font-size: 0.95rem;">
+            Track customer pre-orders, reservations, delivery fulfillment, and partial deposit balances.
+        </p>
+    </div>
+    <div style="display: flex; gap: 10px;">
+        <a href="/orders/new" class="btn btn-teal">
+            <i data-lucide="plus-circle" style="width: 18px; height: 18px;"></i>
+            <span>Create New Order</span>
+        </a>
+    </div>
+</div>
+
+{% if error %}
+<div class="alert alert-danger" style="margin-bottom: 20px;">
+    <i data-lucide="alert-circle" style="width: 18px; height: 18px;"></i>
+    <span>{{ error }}</span>
+</div>
+{% endif %}
+
+{% if success %}
+<div class="alert alert-success" style="margin-bottom: 20px;">
+    <i data-lucide="check-circle-2" style="width: 18px; height: 18px;"></i>
+    <span>{{ success }}</span>
+</div>
+{% endif %}
+
+<!-- 6 KPI CARDS SECTION -->
+<div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-bottom: 28px;">
+    <!-- Total Open Orders -->
+    <div class="kpi-card accent-teal">
+        <div class="kpi-top">
+            <span class="kpi-title">Active Orders</span>
+            <div class="kpi-icon-wrapper kpi-icon-teal">
+                <i data-lucide="shopping-bag" style="width: 20px; height: 20px;"></i>
+            </div>
+        </div>
+        <div class="kpi-value">{{ kpi.total_pending }}</div>
+        <div class="kpi-bottom">
+            <span>In processing pipeline</span>
+        </div>
+    </div>
+
+    <!-- Awaiting Preparation -->
+    <div class="kpi-card accent-amber">
+        <div class="kpi-top">
+            <span class="kpi-title">Awaiting Prep</span>
+            <div class="kpi-icon-wrapper kpi-icon-amber">
+                <i data-lucide="clock" style="width: 20px; height: 20px;"></i>
+            </div>
+        </div>
+        <div class="kpi-value">{{ kpi.awaiting_prep }}</div>
+        <div class="kpi-bottom">
+            <span>Pending & Confirmed</span>
+        </div>
+    </div>
+
+    <!-- Ready for Collection -->
+    <div class="kpi-card accent-emerald">
+        <div class="kpi-top">
+            <span class="kpi-title">Ready for Pickup</span>
+            <div class="kpi-icon-wrapper kpi-icon-emerald">
+                <i data-lucide="package-check" style="width: 20px; height: 20px;"></i>
+            </div>
+        </div>
+        <div class="kpi-value">{{ kpi.ready_collection }}</div>
+        <div class="kpi-bottom">
+            <span>Awaiting customer</span>
+        </div>
+    </div>
+
+    <!-- Out for Delivery -->
+    <div class="kpi-card accent-navy">
+        <div class="kpi-top">
+            <span class="kpi-title">Out for Delivery</span>
+            <div class="kpi-icon-wrapper kpi-icon-navy">
+                <i data-lucide="truck" style="width: 20px; height: 20px;"></i>
+            </div>
+        </div>
+        <div class="kpi-value">{{ kpi.out_delivery }}</div>
+        <div class="kpi-bottom">
+            <span>In transit to customer</span>
+        </div>
+    </div>
+
+    <!-- Overdue Orders -->
+    <div class="kpi-card accent-red">
+        <div class="kpi-top">
+            <span class="kpi-title">Overdue Orders</span>
+            <div class="kpi-icon-wrapper kpi-icon-red">
+                <i data-lucide="alert-triangle" style="width: 20px; height: 20px;"></i>
+            </div>
+        </div>
+        <div class="kpi-value" style="color: var(--error);">{{ kpi.overdue_count }}</div>
+        <div class="kpi-bottom">
+            <span style="color: var(--error);">Passed completion date</span>
+        </div>
+    </div>
+
+    <!-- Total Open Balance -->
+    <div class="kpi-card accent-gold">
+        <div class="kpi-top">
+            <span class="kpi-title">Open Balance</span>
+            <div class="kpi-icon-wrapper kpi-icon-gold">
+                <i data-lucide="coins" style="width: 20px; height: 20px;"></i>
+            </div>
+        </div>
+        <div class="kpi-value" style="font-size: 1.45rem;">Rs. {{ '%.2f'|format(kpi.total_outstanding|float) }}</div>
+        <div class="kpi-bottom">
+            <span>Pending collection</span>
+        </div>
+    </div>
+</div>
+
+<!-- SEARCH & FILTER TOOLBAR -->
+<div class="card" style="padding: 20px; margin-bottom: 24px;">
+    <form method="GET" action="/orders" style="display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end;">
+        <div style="flex: 2; min-width: 200px;">
+            <label style="display: block; font-size: 0.78rem; font-weight: 600; text-transform: uppercase; margin-bottom: 6px; color: var(--text-secondary);">Search</label>
+            <div style="position: relative;">
+                <input type="text" name="q" value="{{ filters.q }}" placeholder="Search by Order #, Customer Name, Phone..." class="form-control" style="padding-left: 38px;">
+                <i data-lucide="search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--text-muted);"></i>
+            </div>
+        </div>
+
+        <div style="flex: 1; min-width: 150px;">
+            <label style="display: block; font-size: 0.78rem; font-weight: 600; text-transform: uppercase; margin-bottom: 6px; color: var(--text-secondary);">Status</label>
+            <select name="status" class="form-control">
+                <option value="">All Statuses</option>
+                {% for st in order_statuses %}
+                <option value="{{ st }}" {% if filters.status == st %}selected{% endif %}>{{ st }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div style="flex: 1; min-width: 150px;">
+            <label style="display: block; font-size: 0.78rem; font-weight: 600; text-transform: uppercase; margin-bottom: 6px; color: var(--text-secondary);">Fulfillment</label>
+            <select name="fulfillment" class="form-control">
+                <option value="">All Methods</option>
+                {% for fm in fulfillment_methods %}
+                <option value="{{ fm }}" {% if filters.fulfillment == fm %}selected{% endif %}>{{ fm }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div style="flex: 1; min-width: 130px;">
+            <label style="display: block; font-size: 0.78rem; font-weight: 600; text-transform: uppercase; margin-bottom: 6px; color: var(--text-secondary);">From Date</label>
+            <input type="date" name="date_from" value="{{ filters.date_from }}" class="form-control">
+        </div>
+
+        <div style="flex: 1; min-width: 130px;">
+            <label style="display: block; font-size: 0.78rem; font-weight: 600; text-transform: uppercase; margin-bottom: 6px; color: var(--text-secondary);">To Date</label>
+            <input type="date" name="date_to" value="{{ filters.date_to }}" class="form-control">
+        </div>
+
+        <div style="display: flex; gap: 8px;">
+            <button type="submit" class="btn btn-primary" style="padding: 10px 16px;">
+                <i data-lucide="filter" style="width: 15px; height: 15px;"></i>
+                <span>Filter</span>
+            </button>
+            <a href="/orders" class="btn btn-secondary" title="Reset Filters" style="padding: 10px 14px;">
+                <i data-lucide="rotate-ccw" style="width: 15px; height: 15px;"></i>
+            </a>
+            {% if filters.overdue_only == "1" %}
+            <a href="/orders" class="btn btn-danger" style="padding: 10px 14px;">
+                <i data-lucide="x" style="width: 15px; height: 15px;"></i>
+                <span>Overdue Only</span>
+            </a>
+            {% else %}
+            <a href="/orders?overdue_only=1" class="btn btn-secondary" style="color: var(--error); border-color: var(--error-border); padding: 10px 14px;">
+                <i data-lucide="alert-triangle" style="width: 15px; height: 15px;"></i>
+                <span>Show Overdue</span>
+            </a>
+            {% endif %}
+        </div>
+    </form>
+</div>
+
+<!-- ORDERS DATA TABLE (Fully Responsive Card View) -->
+<div class="table-container has-card-view">
+    <table class="data-table table-card-view">
+        <thead>
+            <tr>
+                <th>Order Number</th>
+                <th>Customer</th>
+                <th>Order Date</th>
+                <th>Expected Date</th>
+                <th>Items</th>
+                <th>Total (Rs.)</th>
+                <th>Paid (Rs.)</th>
+                <th>Balance (Rs.)</th>
+                <th>Status</th>
+                <th>Fulfillment</th>
+                <th style="text-align: right;">Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for o in orders %}
+            <tr>
+                <td class="card-primary-cell" data-label="Order Number">
+                    <a href="/orders/{{ o.id }}" style="font-weight: 700; color: var(--secondary); text-decoration: none;">
+                        {{ o.order_no }}
+                    </a>
+                    {% if o.is_overdue %}
+                    <span class="badge badge-overdue" style="margin-left: 6px; font-size: 0.65rem; padding: 2px 6px;">OVERDUE</span>
+                    {% endif %}
+                </td>
+
+                <td data-label="Customer">
+                    <div style="font-weight: 600; color: var(--primary);">{{ o.customer_name }}</div>
+                    {% if o.customer_phone %}
+                    <div style="font-size: 0.78rem; color: var(--text-muted);"><i data-lucide="phone" style="width: 11px; height: 11px; display: inline;"></i> {{ o.customer_phone }}</div>
+                    {% endif %}
+                </td>
+
+                <td data-label="Order Date" style="font-size: 0.84rem;">
+                    {{ o.order_date }}
+                </td>
+
+                <td data-label="Expected Date" style="font-size: 0.84rem;">
+                    {% if o.expected_date %}
+                        {% if o.is_overdue %}
+                            <span style="color: var(--error); font-weight: 600;">{{ o.expected_date }}</span>
+                        {% else %}
+                            <span>{{ o.expected_date }}</span>
+                        {% endif %}
+                    {% else %}
+                        <span style="color: var(--text-muted);">—</span>
+                    {% endif %}
+                </td>
+
+                <td data-label="Items" style="text-align: center;">
+                    <span class="badge badge-navy">{{ o.items|length }} items</span>
+                </td>
+
+                <td data-label="Total (Rs.)" style="font-weight: 700; color: var(--primary);">
+                    Rs. {{ '%.2f'|format(o.total_amount|float) }}
+                </td>
+
+                <td data-label="Paid (Rs.)" style="font-weight: 600; color: var(--success-text);">
+                    Rs. {{ '%.2f'|format(o.advance_paid|float) }}
+                </td>
+
+                <td data-label="Balance (Rs.)" style="font-weight: 700; color: {% if o.balance_due > 0 %}var(--error){% else %}var(--text-muted){% endif %};">
+                    Rs. {{ '%.2f'|format(o.balance_due|float) }}
+                </td>
+
+                <td data-label="Status">
+                    {% if o.status == 'Draft' %}
+                        <span class="badge badge-draft"><i data-lucide="file-edit" style="width: 12px; height: 12px;"></i> Draft</span>
+                    {% elif o.status == 'Pending' %}
+                        <span class="badge badge-pending"><i data-lucide="clock" style="width: 12px; height: 12px;"></i> Pending</span>
+                    {% elif o.status == 'Confirmed' %}
+                        <span class="badge badge-confirmed"><i data-lucide="check" style="width: 12px; height: 12px;"></i> Confirmed</span>
+                    {% elif o.status == 'Preparing' %}
+                        <span class="badge badge-preparing"><i data-lucide="package" style="width: 12px; height: 12px;"></i> Preparing</span>
+                    {% elif o.status == 'Ready for Collection' %}
+                        <span class="badge badge-ready"><i data-lucide="package-check" style="width: 12px; height: 12px;"></i> Ready</span>
+                    {% elif o.status == 'Out for Delivery' %}
+                        <span class="badge badge-delivery"><i data-lucide="truck" style="width: 12px; height: 12px;"></i> Out for Delivery</span>
+                    {% elif o.status == 'Partially Fulfilled' %}
+                        <span class="badge badge-partial"><i data-lucide="pie-chart" style="width: 12px; height: 12px;"></i> Partially Fulfilled</span>
+                    {% elif o.status == 'Completed' %}
+                        <span class="badge badge-completed"><i data-lucide="check-circle-2" style="width: 12px; height: 12px;"></i> Completed</span>
+                    {% elif o.status == 'Cancelled' %}
+                        <span class="badge badge-cancelled"><i data-lucide="x-circle" style="width: 12px; height: 12px;"></i> Cancelled</span>
+                    {% else %}
+                        <span class="badge badge-secondary">{{ o.status }}</span>
+                    {% endif %}
+                </td>
+
+                <td data-label="Fulfillment" style="font-size: 0.82rem; color: var(--text-secondary);">
+                    {% if o.fulfillment_method == 'Store Pickup' %}
+                        <i data-lucide="store" style="width: 13px; height: 13px; display: inline;"></i> Pickup
+                    {% elif o.fulfillment_method == 'Home Delivery' %}
+                        <i data-lucide="home" style="width: 13px; height: 13px; display: inline;"></i> Delivery
+                    {% else %}
+                        <i data-lucide="send" style="width: 13px; height: 13px; display: inline;"></i> Courier
+                    {% endif %}
+                </td>
+
+                <td class="card-actions-cell" data-label="Action" style="text-align: right;">
+                    <div style="display: flex; gap: 6px; justify-content: flex-end;">
+                        <a href="/orders/{{ o.id }}" class="btn btn-secondary btn-sm" title="View Order Details">
+                            <i data-lucide="eye" style="width: 14px; height: 14px;"></i>
+                            <span>View</span>
+                        </a>
+                        <a href="/print/order/{{ o.id }}" target="_blank" class="btn btn-secondary btn-sm" title="Print Order Confirmation">
+                            <i data-lucide="printer" style="width: 14px; height: 14px;"></i>
+                        </a>
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="11" class="card-empty-cell" style="text-align: center; padding: 48px; color: var(--text-muted);">
+                    <i data-lucide="inbox" style="width: 44px; height: 44px; margin-bottom: 12px; color: var(--text-muted); opacity: 0.5;"></i>
+                    <p style="font-size: 1rem; margin: 0; font-weight: 500;">No orders found matching your search or filter criteria.</p>
+                    <a href="/orders/new" class="btn btn-teal btn-sm" style="margin-top: 14px;">
+                        <i data-lucide="plus" style="width: 14px; height: 14px;"></i> Create First Order
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

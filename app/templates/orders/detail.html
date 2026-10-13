@@ -1,0 +1,523 @@
+{% extends "dashboard.html" %}
+
+{% block title %}Order {{ order.order_no }} — Ahmad Shop{% endblock %}
+{% block page_title %}Order Details & Fulfillment{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+    <div style="display: flex; align-items: center; gap: 12px;">
+        <a href="/orders" class="btn btn-secondary btn-sm">
+            <i data-lucide="arrow-left" style="width: 15px; height: 15px;"></i>
+            <span>All Orders</span>
+        </a>
+        <h2 style="margin: 0; font-family: var(--font-heading); font-size: 1.45rem; color: var(--primary);">
+            {{ order.order_no }}
+        </h2>
+        
+        <!-- Status Badge -->
+        {% if order.status == 'Draft' %}
+            <span class="badge badge-draft"><i data-lucide="file-edit" style="width: 13px; height: 13px;"></i> Draft</span>
+        {% elif order.status == 'Pending' %}
+            <span class="badge badge-pending"><i data-lucide="clock" style="width: 13px; height: 13px;"></i> Pending</span>
+        {% elif order.status == 'Confirmed' %}
+            <span class="badge badge-confirmed"><i data-lucide="check" style="width: 13px; height: 13px;"></i> Confirmed</span>
+        {% elif order.status == 'Preparing' %}
+            <span class="badge badge-preparing"><i data-lucide="package" style="width: 13px; height: 13px;"></i> Preparing</span>
+        {% elif order.status == 'Ready for Collection' %}
+            <span class="badge badge-ready"><i data-lucide="package-check" style="width: 13px; height: 13px;"></i> Ready for Collection</span>
+        {% elif order.status == 'Out for Delivery' %}
+            <span class="badge badge-delivery"><i data-lucide="truck" style="width: 13px; height: 13px;"></i> Out for Delivery</span>
+        {% elif order.status == 'Partially Fulfilled' %}
+            <span class="badge badge-partial"><i data-lucide="pie-chart" style="width: 13px; height: 13px;"></i> Partially Fulfilled</span>
+        {% elif order.status == 'Completed' %}
+            <span class="badge badge-completed"><i data-lucide="check-circle-2" style="width: 13px; height: 13px;"></i> Completed</span>
+        {% elif order.status == 'Cancelled' %}
+            <span class="badge badge-cancelled"><i data-lucide="x-circle" style="width: 13px; height: 13px;"></i> Cancelled</span>
+        {% endif %}
+
+        {% if order.is_overdue %}
+        <span class="badge badge-overdue">OVERDUE</span>
+        {% endif %}
+    </div>
+
+    <!-- Quick Document Actions -->
+    <div style="display: flex; gap: 10px;">
+        <a href="/print/order/{{ order.id }}" target="_blank" class="btn btn-secondary">
+            <i data-lucide="printer" style="width: 16px; height: 16px;"></i>
+            <span>Print Order Confirmation</span>
+        </a>
+
+        {% if order.sale_id %}
+        <a href="/customers/sales/{{ order.sale_id }}" class="btn btn-primary">
+            <i data-lucide="receipt" style="width: 16px; height: 16px;"></i>
+            <span>View Sales Invoice</span>
+        </a>
+        <a href="/print/sale-pos/{{ order.sale_id }}" target="_blank" class="btn btn-secondary">
+            <i data-lucide="receipt" style="width: 16px; height: 16px;"></i>
+            <span>Thermal Receipt</span>
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+{% if error %}
+<div class="alert alert-danger" style="margin-bottom: 20px;">
+    <i data-lucide="alert-circle" style="width: 18px; height: 18px;"></i>
+    <span>{{ error }}</span>
+</div>
+{% endif %}
+
+{% if success %}
+<div class="alert alert-success" style="margin-bottom: 20px;">
+    <i data-lucide="check-circle-2" style="width: 18px; height: 18px;"></i>
+    <span>{{ success }}</span>
+</div>
+{% endif %}
+
+<!-- WORKFLOW ACTION BAR (If open) -->
+{% if order.status not in ['Completed', 'Cancelled'] %}
+<div class="card" style="padding: 16px 20px; margin-bottom: 24px; background: linear-gradient(135deg, rgba(217, 101, 139, 0.05), rgba(198, 167, 106, 0.08)); border-color: rgba(217, 101, 139, 0.2);">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+        <div>
+            <span style="font-size: 0.82rem; text-transform: uppercase; font-weight: 700; color: var(--secondary); letter-spacing: 0.5px;">Workflow Actions</span>
+            <div style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 2px;">
+                Current Stage: <strong style="color: var(--primary);">{{ order.status }}</strong>
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <!-- Record Payment Button -->
+            {% if order.balance_due > 0 %}
+            <button type="button" class="btn btn-secondary btn-sm" onclick="openPaymentModal()" style="color: var(--success-text); border-color: var(--success);">
+                <i data-lucide="plus-circle" style="width: 15px; height: 15px;"></i>
+                <span>Record Payment (Rs. {{ '%.2f'|format(order.balance_due|float) }} due)</span>
+            </button>
+            {% endif %}
+
+            <!-- Transition Buttons based on state -->
+            {% if order.status in ['Draft', 'Pending'] %}
+            <form method="POST" action="/orders/{{ order.id }}/status" style="display: inline;">
+                <input type="hidden" name="status" value="Confirmed">
+                <button type="submit" class="btn btn-secondary btn-sm" style="color: var(--info); border-color: var(--info);">
+                    <i data-lucide="check" style="width: 14px; height: 14px;"></i> Confirm & Reserve Stock
+                </button>
+            </form>
+            {% endif %}
+
+            {% if order.status == 'Confirmed' %}
+            <form method="POST" action="/orders/{{ order.id }}/status" style="display: inline;">
+                <input type="hidden" name="status" value="Preparing">
+                <button type="submit" class="btn btn-secondary btn-sm">
+                    <i data-lucide="package" style="width: 14px; height: 14px;"></i> Mark as Preparing
+                </button>
+            </form>
+            {% endif %}
+
+            {% if order.status in ['Confirmed', 'Preparing'] %}
+                {% if order.fulfillment_method == 'Store Pickup' %}
+                <form method="POST" action="/orders/{{ order.id }}/status" style="display: inline;">
+                    <input type="hidden" name="status" value="Ready for Collection">
+                    <button type="submit" class="btn btn-secondary btn-sm" style="color: var(--success-text); border-color: var(--success);">
+                        <i data-lucide="package-check" style="width: 14px; height: 14px;"></i> Mark Ready for Pickup
+                    </button>
+                </form>
+                {% else %}
+                <form method="POST" action="/orders/{{ order.id }}/status" style="display: inline;">
+                    <input type="hidden" name="status" value="Out for Delivery">
+                    <button type="submit" class="btn btn-secondary btn-sm" style="color: #0369A1; border-color: #BAE6FD;">
+                        <i data-lucide="truck" style="width: 14px; height: 14px;"></i> Dispatch for Delivery
+                    </button>
+                </form>
+                {% endif %}
+            {% endif %}
+
+            <!-- Complete Order Modal Trigger -->
+            <button type="button" class="btn btn-teal btn-sm" onclick="openCompleteModal()">
+                <i data-lucide="check-circle" style="width: 15px; height: 15px;"></i>
+                <span>Complete & Fulfill Order</span>
+            </button>
+
+            <!-- Cancel Order Form -->
+            <form method="POST" action="/orders/{{ order.id }}/status" onsubmit="return confirm('Are you sure you want to cancel this order? Any reserved stock will be released back to inventory.');" style="display: inline;">
+                <input type="hidden" name="status" value="Cancelled">
+                <button type="submit" class="btn btn-secondary btn-sm" style="color: var(--error);">
+                    <i data-lucide="x" style="width: 14px; height: 14px;"></i> Cancel
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- MAIN GRID: Order Summary & Customer -->
+<div class="grid-3col" style="margin-bottom: 24px; align-items: stretch;">
+    <!-- Customer Information -->
+    <div class="card" style="padding: 20px;">
+        <h4 style="font-size: 0.82rem; text-transform: uppercase; font-weight: 700; color: var(--text-secondary); margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+            <i data-lucide="user" style="width: 16px; height: 16px; color: var(--secondary);"></i>
+            Customer Profile
+        </h4>
+        <div style="font-size: 1.05rem; font-weight: 700; color: var(--primary);">{{ order.customer_name }}</div>
+        {% if order.customer_phone %}
+        <div style="font-size: 0.88rem; color: var(--text-secondary); margin-top: 4px;">
+            <i data-lucide="phone" style="width: 13px; height: 13px; display: inline;"></i> {{ order.customer_phone }}
+        </div>
+        {% endif %}
+        {% if order.customer and not order.customer.is_walk_in %}
+        <div style="margin-top: 8px;">
+            <a href="/customers/{{ order.customer_id }}" style="font-size: 0.82rem; color: var(--secondary); text-decoration: none; font-weight: 600;">
+                View Account Ledger ({{ order.customer.customer_code }}) &rarr;
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Fulfillment & Dates -->
+    <div class="card" style="padding: 20px;">
+        <h4 style="font-size: 0.82rem; text-transform: uppercase; font-weight: 700; color: var(--text-secondary); margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+            <i data-lucide="truck" style="width: 16px; height: 16px; color: var(--accent);"></i>
+            Fulfillment Info
+        </h4>
+        <div style="font-size: 0.9rem; margin-bottom: 6px;">
+            <span style="color: var(--text-secondary);">Method:</span>
+            <strong style="color: var(--primary);">{{ order.fulfillment_method }}</strong>
+        </div>
+        <div style="font-size: 0.9rem; margin-bottom: 6px;">
+            <span style="color: var(--text-secondary);">Order Date:</span>
+            <span>{{ order.order_date }}</span>
+        </div>
+        <div style="font-size: 0.9rem;">
+            <span style="color: var(--text-secondary);">Expected Fulfillment:</span>
+            <strong>{{ order.expected_date or 'Not specified' }}</strong>
+        </div>
+        {% if order.delivery_address %}
+        <div style="font-size: 0.82rem; color: var(--text-muted); margin-top: 6px;">
+            <i data-lucide="map-pin" style="width: 12px; height: 12px; display: inline;"></i> {{ order.delivery_address }}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Financial Balances -->
+    <div class="card" style="padding: 20px; background: var(--bg-subtle);">
+        <h4 style="font-size: 0.82rem; text-transform: uppercase; font-weight: 700; color: var(--text-secondary); margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+            <i data-lucide="coins" style="width: 16px; height: 16px; color: var(--secondary);"></i>
+            Payment Status
+        </h4>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 0.9rem;">
+            <span style="color: var(--text-secondary);">Total Order:</span>
+            <strong style="color: var(--primary);">Rs. {{ '%.2f'|format(order.total_amount|float) }}</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 0.9rem;">
+            <span style="color: var(--text-secondary);">Total Paid / Deposit:</span>
+            <strong style="color: var(--success-text);">Rs. {{ '%.2f'|format(order.advance_paid|float) }}</strong>
+        </div>
+        <hr style="border: none; border-top: 1px solid var(--border-color); margin: 8px 0;">
+        <div style="display: flex; justify-content: space-between; font-size: 1.05rem; font-weight: 700;">
+            <span style="color: var(--text-secondary);">Remaining Balance:</span>
+            <span style="color: {% if order.balance_due > 0 %}var(--error){% else %}var(--success-text){% endif %};">
+                Rs. {{ '%.2f'|format(order.balance_due|float) }}
+            </span>
+        </div>
+    </div>
+</div>
+
+<!-- ORDER ITEMS TABLE -->
+<div class="card" style="padding: 24px; margin-bottom: 24px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3 class="card-title" style="margin: 0; display: flex; align-items: center; gap: 8px;">
+            <i data-lucide="package" style="width: 20px; height: 20px; color: var(--secondary);"></i>
+            Order Line Items & Inventory Reservation Status
+        </h3>
+        <span class="badge badge-navy">{{ order.items|length }} Items</span>
+    </div>
+
+    <div class="table-container table-scroll-container" style="margin-top: 0; box-shadow: none;">
+        <table class="data-table" style="min-width: 700px;">
+            <thead>
+                <tr>
+                    <th>Item Code</th>
+                    <th>Cosmetic Product</th>
+                    <th>Variant / Shade</th>
+                    <th style="text-align: center;">Qty Ordered</th>
+                    <th style="text-align: right;">Unit Price</th>
+                    <th style="text-align: right;">Discount</th>
+                    <th style="text-align: right;">Subtotal</th>
+                    <th style="text-align: center;">Reservation State</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for line in order.items %}
+                <tr>
+                    <td style="font-family: monospace; font-weight: 600; color: var(--primary);">
+                        <a href="/stock/{{ line.item_id }}" style="color: var(--secondary); text-decoration: none;">
+                            {{ line.item.item_code }}
+                        </a>
+                    </td>
+                    <td>
+                        <div style="font-weight: 600; color: var(--primary);">{{ line.item.name }}</div>
+                        <div style="font-size: 0.78rem; color: var(--text-muted);">{{ line.item.brand }} &bull; {{ line.item.category }}</div>
+                    </td>
+                    <td>
+                        {{ line.variant_info or 'Standard' }}
+                    </td>
+                    <td style="text-align: center; font-weight: 700; color: var(--primary);">
+                        {{ line.quantity }} {{ line.item.unit }}
+                    </td>
+                    <td style="text-align: right;">
+                        Rs. {{ '%.2f'|format(line.unit_price|float) }}
+                    </td>
+                    <td style="text-align: right; color: var(--text-muted);">
+                        Rs. {{ '%.2f'|format(line.discount|float) }}
+                    </td>
+                    <td style="text-align: right; font-weight: 700; color: var(--primary);">
+                        Rs. {{ '%.2f'|format(line.subtotal|float) }}
+                    </td>
+                    <td style="text-align: center;">
+                        {% if order.status == 'Completed' %}
+                            <span class="badge badge-success"><i data-lucide="check-check" style="width: 12px; height: 12px;"></i> Fulfilled & Deducted</span>
+                        {% elif order.status == 'Cancelled' %}
+                            <span class="badge badge-draft"><i data-lucide="rotate-ccw" style="width: 12px; height: 12px;"></i> Released</span>
+                        {% elif line.is_reserved %}
+                            <span class="badge badge-info"><i data-lucide="shield-check" style="width: 12px; height: 12px;"></i> Reserved in Stock</span>
+                        {% else %}
+                            <span class="badge badge-draft">Not Reserved ({{ line.item.available_stock }} avail)</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Financial Footer Summary -->
+    <div style="display: flex; justify-content: flex-end; margin-top: 18px;">
+        <div style="width: 320px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 0.9rem;">
+                <span style="color: var(--text-secondary);">Subtotal:</span>
+                <span>Rs. {{ '%.2f'|format(order.subtotal|float) }}</span>
+            </div>
+            {% if order.discount > 0 %}
+            <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 0.9rem; color: var(--success-text);">
+                <span>Overall Discount:</span>
+                <span>- Rs. {{ '%.2f'|format(order.discount|float) }}</span>
+            </div>
+            {% endif %}
+            {% if order.delivery_charges > 0 %}
+            <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 0.9rem;">
+                <span style="color: var(--text-secondary);">Delivery Charges:</span>
+                <span>+ Rs. {{ '%.2f'|format(order.delivery_charges|float) }}</span>
+            </div>
+            {% endif %}
+            <hr style="border: none; border-top: 1px solid var(--border-color); margin: 8px 0;">
+            <div style="display: flex; justify-content: space-between; font-size: 1.1rem; font-weight: 700; color: var(--primary);">
+                <span>Grand Total:</span>
+                <span>Rs. {{ '%.2f'|format(order.total_amount|float) }}</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SPLIT: PAYMENT HISTORY & STATUS TIMELINE -->
+<div class="grid-2col" style="gap: 24px; margin-bottom: 24px;">
+    <!-- Payments Recorded -->
+    <div class="card" style="padding: 24px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <h3 class="card-title" style="margin: 0; display: flex; align-items: center; gap: 8px;">
+                <i data-lucide="receipt" style="width: 18px; height: 18px; color: var(--success);"></i>
+                Payment & Deposit History
+            </h3>
+            {% if order.status not in ['Completed', 'Cancelled'] and order.balance_due > 0 %}
+            <button type="button" class="btn btn-secondary btn-sm" onclick="openPaymentModal()" style="color: var(--success-text); border-color: var(--success);">
+                + Add Payment
+            </button>
+            {% endif %}
+        </div>
+
+        <div class="table-container" style="margin-top: 0; box-shadow: none;">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Receipt #</th>
+                        <th>Date</th>
+                        <th>Amount</th>
+                        <th>Method</th>
+                        <th>Received By</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in order.payments %}
+                    <tr>
+                        <td style="font-family: monospace; font-weight: 600;">{{ p.payment_no }}</td>
+                        <td style="font-size: 0.84rem;">{{ p.date }}</td>
+                        <td style="font-weight: 700; color: var(--success-text);">Rs. {{ '%.2f'|format(p.amount|float) }}</td>
+                        <td style="font-size: 0.84rem;">{{ p.payment_method }}</td>
+                        <td style="font-size: 0.84rem; color: var(--text-secondary);">{{ p.user.username if p.user else 'System' }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 24px 0;">
+                            No deposit or payments recorded yet.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Status History Timeline -->
+    <div class="card" style="padding: 24px;">
+        <h3 class="card-title" style="margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+            <i data-lucide="history" style="width: 18px; height: 18px; color: var(--secondary);"></i>
+            Order Activity & Timeline
+        </h3>
+
+        <div style="display: flex; flex-direction: column; gap: 14px;">
+            {% for t in order.timeline %}
+            <div style="display: flex; gap: 12px; align-items: flex-start; padding-bottom: 12px; border-bottom: 1px solid var(--border-subtle);">
+                <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--secondary-light); color: var(--secondary); display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px;">
+                    <i data-lucide="check" style="width: 14px; height: 14px;"></i>
+                </div>
+                <div style="flex: 1;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <strong style="color: var(--primary); font-size: 0.9rem;">
+                            {{ t.to_status }}
+                        </strong>
+                        <span style="font-size: 0.75rem; color: var(--text-muted);">
+                            {{ t.created_at.strftime('%d-%b-%Y %I:%M %p') if t.created_at else '' }}
+                        </span>
+                    </div>
+                    {% if t.note %}
+                    <p style="font-size: 0.82rem; color: var(--text-secondary); margin: 3px 0 0 0;">
+                        {{ t.note }}
+                    </p>
+                    {% endif %}
+                    <span style="font-size: 0.72rem; color: var(--text-muted);">By {{ t.user.username if t.user else 'Staff' }}</span>
+                </div>
+            </div>
+            {% else %}
+            <div style="color: var(--text-muted); text-align: center; padding: 24px 0;">No status events recorded.</div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: ADD PAYMENT -->
+<div id="payment-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 999; align-items: center; justify-content: center;">
+    <div class="card" style="width: 90%; max-width: 450px; padding: 24px; box-shadow: var(--shadow-xl);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <h3 class="card-title" style="margin: 0;">Record Order Payment</h3>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="closePaymentModal()" style="border: none; padding: 4px;">
+                <i data-lucide="x" style="width: 18px; height: 18px;"></i>
+            </button>
+        </div>
+
+        <form method="POST" action="/orders/{{ order.id }}/payment">
+            <div class="form-group">
+                <label>Amount to Receive (Rs.) *</label>
+                <input type="number" step="0.01" min="0.01" max="{{ order.balance_due }}" name="amount" value="{{ order.balance_due }}" class="form-control" required style="font-size: 1.1rem; font-weight: 700;">
+                <span style="font-size: 0.75rem; color: var(--text-muted);">Max balance due: Rs. {{ '%.2f'|format(order.balance_due|float) }}</span>
+            </div>
+
+            <div class="form-group">
+                <label>Payment Method *</label>
+                <select name="payment_method" class="form-control" required>
+                    {% for pm in payment_methods %}
+                    <option value="{{ pm }}">{{ pm }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Payment Date *</label>
+                <input type="date" name="date" class="form-control" value="{{ today }}" required>
+            </div>
+
+            <div class="form-group">
+                <label>Notes / Reference</label>
+                <input type="text" name="note" class="form-control" placeholder="Cheque #, transaction ref, etc.">
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                <button type="button" class="btn btn-secondary" onclick="closePaymentModal()">Cancel</button>
+                <button type="submit" class="btn btn-teal">Record Payment</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL: COMPLETE ORDER -->
+<div id="complete-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 999; align-items: center; justify-content: center;">
+    <div class="card" style="width: 90%; max-width: 500px; padding: 24px; box-shadow: var(--shadow-xl);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <h3 class="card-title" style="margin: 0; color: var(--primary);">Complete & Fulfill Order</h3>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="closeCompleteModal()" style="border: none; padding: 4px;">
+                <i data-lucide="x" style="width: 18px; height: 18px;"></i>
+            </button>
+        </div>
+
+        <p style="font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 16px;">
+            Completing this order will deduct the physical inventory exactly once, release reservations, generate the final Sales Invoice, and update customer ledgers.
+        </p>
+
+        <form method="POST" action="/orders/{{ order.id }}/complete">
+            {% if order.balance_due > 0 %}
+            <div style="background: var(--bg-subtle); padding: 14px; border-radius: var(--radius-md); border: 1px solid var(--border-color); margin-bottom: 16px;">
+                <div style="font-size: 0.85rem; font-weight: 600; color: var(--error); margin-bottom: 8px;">
+                    Remaining Balance: Rs. {{ '%.2f'|format(order.balance_due|float) }}
+                </div>
+                <div class="form-group" style="margin-bottom: 10px;">
+                    <label>Collect Final Payment Now (Rs.)</label>
+                    <input type="number" step="0.01" min="0" max="{{ order.balance_due }}" name="final_payment" value="{{ order.balance_due }}" class="form-control" style="font-weight: 700;">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label>Final Payment Method</label>
+                    <select name="final_payment_method" class="form-control">
+                        {% for pm in payment_methods %}
+                        <option value="{{ pm }}">{{ pm }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            {% else %}
+            <input type="hidden" name="final_payment" value="0.00">
+            <input type="hidden" name="final_payment_method" value="Cash">
+            <div class="alert alert-success" style="margin-bottom: 16px;">
+                <i data-lucide="check" style="width: 16px; height: 16px;"></i> Order is fully paid. Ready for handover.
+            </div>
+            {% endif %}
+
+            <div class="form-group">
+                <label>Fulfillment Note</label>
+                <input type="text" name="note" class="form-control" placeholder="Handed over to customer / Dispatched via courier...">
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                <button type="button" class="btn btn-secondary" onclick="closeCompleteModal()">Cancel</button>
+                <button type="submit" class="btn btn-teal">
+                    <i data-lucide="check-circle" style="width: 16px; height: 16px;"></i> Fulfill & Issue Invoice
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openPaymentModal() {
+        const m = document.getElementById('payment-modal');
+        m.style.display = 'flex';
+        lucide.createIcons();
+    }
+    function closePaymentModal() {
+        document.getElementById('payment-modal').style.display = 'none';
+    }
+    function openCompleteModal() {
+        const m = document.getElementById('complete-modal');
+        m.style.display = 'flex';
+        lucide.createIcons();
+    }
+    function closeCompleteModal() {
+        document.getElementById('complete-modal').style.display = 'none';
+    }
+</script>
+{% endblock %}
